@@ -1,20 +1,29 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { Button, IconButton, Text } from "react-native-paper";
+import { Button, Checkbox, IconButton, Text } from "react-native-paper";
 import Animated, { LinearTransition, runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { AddEditItemModal } from "../components/AddEditItemModal";
 
 const ITEM_HEIGHT = 50;
 
 interface ItemProps {
     id: string;
     text: string;
+    checked: boolean;
     onRemove: () => void;
     index: number;
     onDrag: (draggedIndex: number, offsetY: number) => void;
+    onCheck: () => void;
 }
 
-function Item({ text, onRemove, onDrag, index }: ItemProps) {
+interface Item {
+    id: string;
+    text: string;
+    checked: boolean;
+}
+
+function Item({ text, onCheck, checked, onRemove, onDrag, index }: ItemProps) {
     const translateY = useSharedValue(0);
     const isDragging = useSharedValue(false);
 
@@ -39,6 +48,10 @@ function Item({ text, onRemove, onDrag, index }: ItemProps) {
 
     return <GestureDetector gesture={gesture}>
         <Animated.View style={[styles.container, animatedStyle]}>
+            <Checkbox
+                status={checked ? 'checked' : 'unchecked'}
+                onPress={onCheck}
+            />
             <Text style={styles.text}>{text}</Text>
             <IconButton
                 icon="trash-can-outline"
@@ -69,20 +82,38 @@ const styles = StyleSheet.create({
 });
 
 export function ExampleGestureList() {
-    const [data, setData] = useState([
-        { id: "1", text: "Item 1" },
-        { id: "2", text: "Item 2" },
-    ]);
+    const [data, setData] = useState<Item[]>([]);
 
-    const handleAddItem = () => {
+    const handleAddItem = (text: string) => {
         const id = String(Math.floor(Math.random() * 10000));
-        setData([{ id, text: `Item ${id}` }, ...data]);
+        setData([{ id, text, checked: false }, ...data]);
     }
 
     // Definir a função para remover o item
     const handleRemoveItem = (id: string) => {
         const filteredData = data.filter((item) => item.id !== id);
         setData(filteredData);
+    }
+
+    const handleCheckItem = (id: string) => {
+        // Encontrar o item (usar data.find())
+        const item = data.find((item) => item.id === id);
+
+        if (item) {
+            // Remover o item do estado (usar data.filter())
+            const filteredData = data.filter((item) => item.id !== id);
+
+            // Modificar o item encontrado (item.checked = !item.checked)
+            item.checked = !item.checked
+
+            if (item.checked) {
+                // Atualizar o estado adicionando o item modificado ao final (...data, item)
+                setData([...filteredData, item]);
+            } else {
+                // Atualizar o estado adicionando o item modificado no começo (...data, item)
+                setData([item, ...filteredData]);
+            }
+        }
     }
 
     // Atualizar item
@@ -112,21 +143,29 @@ export function ExampleGestureList() {
         }
     };
 
+    const [showAddItemModal, setShowAddItemModal] = useState(false);
+
     return (
         <>
+            {showAddItemModal && (
+                <AddEditItemModal 
+                    onSave={handleAddItem} 
+                    close={() => setShowAddItemModal(false)} />
+            )}
             <Animated.FlatList
                 data={data}
                 renderItem={({ item, index }) => <Item
                     onDrag={handleDrag}
                     index={index}
                     onRemove={() => handleRemoveItem(item.id)}
+                    onCheck={() => handleCheckItem(item.id)}
                     {...item}
                 />}
                 keyExtractor={(item) => item.id}
                 itemLayoutAnimation={LinearTransition}
             />
             <Button
-                onPress={handleAddItem}
+                onPress={() => setShowAddItemModal(true)}
                 mode="contained"
             >Adicionar Item</Button>
         </>
